@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- R1：HBase 单机模式。HMaster、RegionServer、ZooKeeper 跑在同一个进程里，数据存本地磁盘。@...@ 由 03-hbase.sh 替换 -->
+<configuration>
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>hbase.rootdir</name>
+    <value>file://@DATA_DIR@/hbase/root</value>
+  </property>
+  <property>
+    <name>hbase.tmp.dir</name>
+    <value>@DATA_DIR@/hbase/tmp</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.quorum</name>
+    <value>@VM_HOST@</value>
+  </property>
+  <!-- 单机模式内置的 ZooKeeper 默认只监听 127.0.0.1，而上面的 quorum 指向虚拟机 IP，不改会连接被拒。
+       必须写 0.0.0.0：HBase 启动自检固定连 localhost，只监听虚拟机 IP 也会失败 -->
+  <property>
+    <name>hbase.zookeeper.property.clientPortAddress</name>
+    <value>0.0.0.0</value>
+  </property>
+  <!-- 单机模式的 ZooKeeper 会话超时默认只有 10 秒：虚拟机卡顿超过 10 秒（2026-11-02 实测卡了 23 秒，不是 GC），
+       会话过期，HMaster 直接退出。调到 90 秒；ZooKeeper 允许的最大超时 = 20 × tickTime，所以 tickTime 同步调到 6 秒 -->
+  <property>
+    <name>zookeeper.session.timeout.localHBaseCluster</name>
+    <value>90000</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.property.tickTime</name>
+    <value>6000</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.property.dataDir</name>
+    <value>@DATA_DIR@/hbase/zookeeper</value>
+  </property>
+  <!-- 本地文件系统不支持 hflush / hsync，单机练习必须关掉这项检查 -->
+  <property>
+    <name>hbase.unsafe.stream.capability.enforce</name>
+    <value>false</value>
+  </property>
+</configuration>
