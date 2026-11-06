@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="736" viewBox="0 0 680 736" role="img">
+<title>电商用户行为实时数仓架构</title>
+<desc>回放器写入 Kafka 和 MySQL；Flink SQL、Flink CDC、Java DataStream 三条链路处理后写入 Doris，最后支撑大屏和对账。</desc>
+<style>
+  text { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Helvetica Neue", Arial, sans-serif; }
+  .th { font-size: 14px; font-weight: 600; }
+  .ts { font-size: 12px; }
+  .label { fill: #73726c; }
+  .arr { stroke: #73726c; stroke-width: 1.5; fill: none; }
+  .dash { stroke-dasharray: 5 4; }
+  .head { fill: none; stroke: #73726c; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .c-gray rect { fill: #F1EFE8; stroke: #5F5E5A; }
+  .c-gray text { fill: #2C2C2A; }
+  .c-teal rect { fill: #E1F5EE; stroke: #0F6E56; }
+  .c-teal text { fill: #085041; }
+  .c-purple rect { fill: #EEEDFE; stroke: #534AB7; }
+  .c-purple text { fill: #3C3489; }
+  @media (prefers-color-scheme: dark) {
+    .label { fill: #B4B2A9; }
+    .arr, .head { stroke: #B4B2A9; }
+    .c-gray rect { fill: #444441; stroke: #B4B2A9; }
+    .c-gray text { fill: #F1EFE8; }
+    .c-teal rect { fill: #085041; stroke: #5DCAA5; }
+    .c-teal text { fill: #E1F5EE; }
+    .c-purple rect { fill: #3C3489; stroke: #AFA9EC; }
+    .c-purple text { fill: #EEEDFE; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="head" d="M2 1L8 5L2 9"/></marker></defs>
+
+<text class="ts label" x="40" y="68" dominant-baseline="central">数据源</text>
+<text class="ts label" x="40" y="164" dominant-baseline="central">接入</text>
+<text class="ts label" x="40" y="260" dominant-baseline="central">计算</text>
+<text class="ts label" x="40" y="356" dominant-baseline="central">中转</text>
+<text class="ts label" x="40" y="452" dominant-baseline="central">计算</text>
+<text class="ts label" x="40" y="548" dominant-baseline="central">服务</text>
+<text class="ts label" x="40" y="644" dominant-baseline="central">应用</text>
+
+<g class="c-gray"><rect x="100" y="40" width="536" height="56" rx="8" stroke-width="0.8"/><text class="th" x="368" y="60" text-anchor="middle" dominant-baseline="central">回放器（Python）</text><text class="ts" x="368" y="78" text-anchor="middle" dominant-baseline="central">按事件时间回放，注入乱序 / 迟到 / 退款</text></g>
+<line x1="158" y1="96" x2="158" y2="134" class="arr" marker-end="url(#arrow)"/>
+<line x1="438" y1="96" x2="438" y2="134" class="arr" marker-end="url(#arrow)"/>
+
+<g class="c-teal"><rect x="100" y="136" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="158" y="156" text-anchor="middle" dominant-baseline="central">MySQL</text><text class="ts" x="158" y="174" text-anchor="middle" dominant-baseline="central">orders 订单表</text></g>
+<g class="c-teal"><rect x="240" y="136" width="396" height="56" rx="8" stroke-width="0.8"/><text class="th" x="438" y="156" text-anchor="middle" dominant-baseline="central">Kafka · ods_user_behavior</text><text class="ts" x="438" y="174" text-anchor="middle" dominant-baseline="central">行为日志，3 分区，幂等生产</text></g>
+<line x1="158" y1="192" x2="158" y2="230" class="arr" marker-end="url(#arrow)"/>
+<line x1="298" y1="192" x2="298" y2="230" class="arr" marker-end="url(#arrow)"/>
+<line x1="578" y1="192" x2="578" y2="230" class="arr" marker-end="url(#arrow)"/>
+<path d="M636 164 H656 V452 H638" class="arr dash" marker-end="url(#arrow)"/>
+<text class="ts label" x="668" y="308" text-anchor="middle" dominant-baseline="central" transform="rotate(90 668 308)">ODS 明细（对账用）</text>
+
+<g class="c-purple"><rect x="100" y="232" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="158" y="252" text-anchor="middle" dominant-baseline="central">Flink CDC</text><text class="ts" x="158" y="270" text-anchor="middle" dominant-baseline="central">GMV，退款回撤</text></g>
+<g class="c-purple"><rect x="240" y="232" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="298" y="252" text-anchor="middle" dominant-baseline="central">Flink SQL DWD</text><text class="ts" x="298" y="270" text-anchor="middle" dominant-baseline="central">清洗 + 关联维表</text></g>
+<g class="c-teal"><rect x="380" y="232" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="438" y="252" text-anchor="middle" dominant-baseline="central">HBase 维表</text><text class="ts" x="438" y="270" text-anchor="middle" dominant-baseline="central">加盐 rowkey</text></g>
+<g class="c-purple"><rect x="520" y="232" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="578" y="252" text-anchor="middle" dominant-baseline="central">DataStream</text><text class="ts" x="578" y="270" text-anchor="middle" dominant-baseline="central">迟到 + 侧输出</text></g>
+<line x1="378" y1="260" x2="358" y2="260" class="arr" marker-end="url(#arrow)"/>
+<line x1="298" y1="288" x2="298" y2="326" class="arr" marker-end="url(#arrow)"/>
+<line x1="578" y1="288" x2="578" y2="326" class="arr" marker-end="url(#arrow)"/>
+<line x1="158" y1="288" x2="158" y2="518" class="arr" marker-end="url(#arrow)"/>
+
+<g class="c-teal"><rect x="240" y="328" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="298" y="348" text-anchor="middle" dominant-baseline="central">Kafka dwd</text><text class="ts" x="298" y="366" text-anchor="middle" dominant-baseline="central">事务写，读已提交</text></g>
+<g class="c-teal"><rect x="520" y="328" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="578" y="348" text-anchor="middle" dominant-baseline="central">Kafka 结果</text><text class="ts" x="578" y="366" text-anchor="middle" dominant-baseline="central">窗口结果 / 迟到</text></g>
+<line x1="298" y1="384" x2="298" y2="422" class="arr" marker-end="url(#arrow)"/>
+<line x1="578" y1="384" x2="578" y2="422" class="arr" marker-end="url(#arrow)"/>
+
+<g class="c-purple"><rect x="240" y="424" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="298" y="444" text-anchor="middle" dominant-baseline="central">Flink SQL DWS</text><text class="ts" x="298" y="462" text-anchor="middle" dominant-baseline="central">1 分钟窗口 + UV</text></g>
+<g class="c-purple"><rect x="520" y="424" width="116" height="56" rx="8" stroke-width="0.8"/><text class="th" x="578" y="444" text-anchor="middle" dominant-baseline="central">Routine Load</text><text class="ts" x="578" y="462" text-anchor="middle" dominant-baseline="central">Kafka 导入 Doris</text></g>
+<line x1="298" y1="480" x2="298" y2="518" class="arr" marker-end="url(#arrow)"/>
+<line x1="578" y1="480" x2="578" y2="518" class="arr" marker-end="url(#arrow)"/>
+
+<g class="c-teal"><rect x="100" y="520" width="536" height="56" rx="8" stroke-width="0.8"/><text class="th" x="368" y="540" text-anchor="middle" dominant-baseline="central">Doris · r1_dw</text><text class="ts" x="368" y="558" text-anchor="middle" dominant-baseline="central">交易 / 流量 / BITMAP UV / 迟到明细 / ODS 明细</text></g>
+<line x1="368" y1="576" x2="368" y2="614" class="arr" marker-end="url(#arrow)"/>
+
+<g class="c-gray"><rect x="100" y="616" width="536" height="56" rx="8" stroke-width="0.8"/><text class="th" x="368" y="636" text-anchor="middle" dominant-baseline="central">大屏 + 对账</text><text class="ts" x="368" y="654" text-anchor="middle" dominant-baseline="central">PV/UV、漏斗、GMV；流 + 迟到 = 离线重算</text></g>
+
+<text class="ts label" x="100" y="700" dominant-baseline="central">紫色：计算作业　青色：消息队列 / 存储　灰色：数据源与应用</text>
+<text class="ts label" x="100" y="720" dominant-baseline="central">虚线：ODS 明细直接导入 Doris，用来离线重算、和实时结果对账</text>
+</svg>

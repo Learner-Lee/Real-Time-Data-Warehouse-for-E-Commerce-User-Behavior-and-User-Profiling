@@ -24,6 +24,11 @@
 
 ## 架构
 
+![架构图：回放器写入 Kafka 和 MySQL，Flink SQL、Flink CDC、Java DataStream 三条链路处理后写入 Doris，支撑大屏和对账](assets/architecture.svg)
+
+<details>
+<summary>文字版（带 topic 名和表名）</summary>
+
 ```
 回放器（Python）──行为日志──→ Kafka ods_user_behavior ──┬──→ Flink SQL：DWD（清洗 + 异步关联 HBase 维表）──→ Kafka dwd_user_behavior
       │                                                 │                                                        │
@@ -40,6 +45,8 @@ MySQL r1_shop.orders ──→ Flink CDC ──→ Flink SQL：DWS 交易（GMV�
 
 HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink 作业从 CSV 导入
 ```
+
+</details>
 
 ## 目录
 
