@@ -48,6 +48,11 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
 
 </details>
 
+## 数据血缘与表结构
+
+- **交互式血缘图**：[docs/lineage.html](docs/lineage.html)。18 个节点、89 个字段的表级和字段级血缘：点一张表看上下游，点一个字段看它从哪来、怎么算、影响哪些指标。GitHub 不直接渲染 HTML，下载后用浏览器打开。
+- **表结构与数据样例**：[mvp/R1-表结构与数据样例.xlsx](mvp/R1-表结构与数据样例.xlsx)。按分层列出 9 张表和 4 个 topic，带字段说明和真实数据样例。
+
 ## 目录
 
 | 路径 | 内容 |

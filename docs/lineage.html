@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}</style>
+<title>R1 数据血缘图</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* 布局：上方标题和图例；中间是分 5 列的血缘图（可横向滚动），右侧（窄屏时在下方）是详情面板 */
+:root {
+  --bg: #F6F7F5; --surface: #FFFFFF; --fg: #1E2321; --muted: #5E6763; --line: #D5DAD7; --edge: #9AA49F;
+  --accent: #0F6E56; --accent-soft: #DDF1EA; --hl: #C2410C;
+  --file: #6B6F6C; --file-bg: #EEEFEC; --kafka: #A15C12; --kafka-bg: #FBEEDD;
+  --mysql: #2D6197; --mysql-bg: #E3EDF8; --hbase: #9B3B32; --hbase-bg: #F8E5E2;
+  --doris: #0F6E56; --doris-bg: #DDF1EA; --query: #5544B0; --query-bg: #ECE9FB;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141816; --surface: #1C211F; --fg: #E6EBE8; --muted: #9AA6A0; --line: #2F3633; --edge: #5C6662;
+  --accent: #5DCAA5; --accent-soft: #163A30; --hl: #FB923C;
+  --file: #B4B8B5; --file-bg: #262A28; --kafka: #F0B060; --kafka-bg: #3A2A14;
+  --mysql: #8DB8E8; --mysql-bg: #182B40; --hbase: #F0968C; --hbase-bg: #3D1F1C;
+  --doris: #5DCAA5; --doris-bg: #133A2F; --query: #B4A9F2; --query-bg: #28214D; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141816; --surface: #1C211F; --fg: #E6EBE8; --muted: #9AA6A0; --line: #2F3633; --edge: #5C6662;
+  --accent: #5DCAA5; --accent-soft: #163A30; --hl: #FB923C;
+  --file: #B4B8B5; --file-bg: #262A28; --kafka: #F0B060; --kafka-bg: #3A2A14;
+  --mysql: #8DB8E8; --mysql-bg: #182B40; --hbase: #F0968C; --hbase-bg: #3D1F1C;
+  --doris: #5DCAA5; --doris-bg: #133A2F; --query: #B4A9F2; --query-bg: #28214D; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 32px; }
+.wrap { max-width: 1480px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: grid; gap: 6px; }
+h1 { margin: 0; font-size: 22px; font-weight: 700; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 70ch; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; display: inline-block; }
+.ln { width: 22px; height: 0; border-top: 2px solid var(--edge); display: inline-block; }
+.ln.dash { border-top-style: dashed; } .ln.dot { border-top-style: dotted; }
+.search { position: relative; margin-left: auto; min-width: 0; }
+.search input { font: inherit; font-size: 13px; width: 240px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
+.search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.results { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; width: 300px; max-width: 80vw; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 4px; }
+.results button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--fg); font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+.results button:hover, .results button:focus-visible { background: var(--accent-soft); outline: none; }
+.results .none { padding: 6px 8px; color: var(--muted); font-size: 13px; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.graph { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; min-width: 0; }
+.graph svg { display: block; min-width: 980px; width: 100%; height: auto; }
+.colhead { font-size: 12px; fill: var(--muted); font-weight: 500; letter-spacing: .04em; }
+.edge { fill: none; stroke: var(--edge); stroke-width: 1.4; transition: opacity .15s; }
+.edge.lookup { stroke-dasharray: 6 4; } .edge.query { stroke-dasharray: 2 4; }
+.edge.on { stroke: var(--hl); stroke-width: 2.2; }
+.dim { opacity: .18; }
+.elabel rect { fill: var(--surface); stroke: var(--hl); stroke-width: .8; }
+.elabel text { font-size: 10.5px; fill: var(--hl); font-family: var(--font-body); }
+.node { cursor: pointer; transition: opacity .15s; }
+.node rect.box { stroke-width: 1.2; }
+.node .nm { font-family: var(--font-mono); font-size: 12px; font-weight: 600; }
+.node .sub { font-size: 10.5px; }
+.node:hover rect.box { stroke-width: 2; }
+.node:focus { outline: none; } .node:focus-visible rect.box { stroke-width: 2.6; }
+.node.sel rect.box { stroke-width: 2.6; stroke: var(--hl) !important; }
+.node.on rect.box { stroke-width: 2; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.panel h2 { margin: 0; font-size: 17px; font-family: var(--font-mono); word-break: break-all; }
+.panel h3 { margin: 0 0 6px; font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: .06em; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid; }
+.desc { margin: 0; }
+.expr { font-family: var(--font-mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; }
+.flist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.flist button { width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 15ch) minmax(0, 1fr); gap: 10px; border: 0; background: none; color: var(--fg); font: inherit; font-size: 13px; padding: 4px 6px; border-radius: 5px; cursor: pointer; }
+.flist button:hover, .flist button:focus-visible { background: var(--accent-soft); outline: none; }
+.flist button.sel { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.flist .fn { font-family: var(--font-mono); font-weight: 600; overflow-wrap: anywhere; }
+.flist .fd { color: var(--muted); }
+.hops { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.hops li { min-width: 0; }
+.hops ul { list-style: none; margin: 6px 0 0 10px; padding: 0 0 0 12px; border-left: 1px solid var(--line); display: grid; gap: 6px; }
+.ref { border: 0; background: none; padding: 0; font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--accent); cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.ref:hover { text-decoration: underline; } .ref:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.how { display: block; color: var(--muted); font-size: 12.5px; }
+.src { font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+.links { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.links .job { color: var(--muted); }
+.reset { justify-self: start; font: inherit; font-size: 12.5px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.reset:focus-visible { outline: 2px solid var(--accent); }
+.foot { font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .edge, .node { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>R1 电商实时数仓 · 数据血缘</h1>
+    <p class="lede">点一张表，看它的全部上游和下游；点一个字段，看它从哪些字段、经过什么计算得来，又被哪些指标用到。血缘按项目代码逐条核对过：Flink SQL、Java DataStream 作业、回放器和 Doris 导入任务。</p>
+    <div class="toolbar">
+      <div class="legend" aria-label="图例">
+        <span><i class="sw" style="border-color:var(--file);background:var(--file-bg)"></i>源文件</span>
+        <span><i class="sw" style="border-color:var(--kafka);background:var(--kafka-bg)"></i>Kafka</span>
+        <span><i class="sw" style="border-color:var(--mysql);background:var(--mysql-bg)"></i>MySQL</span>
+        <span><i class="sw" style="border-color:var(--hbase);background:var(--hbase-bg)"></i>HBase</span>
+        <span><i class="sw" style="border-color:var(--doris);background:var(--doris-bg)"></i>Doris</span>
+        <span><i class="sw" style="border-color:var(--query);background:var(--query-bg)"></i>查询</span>
+        <span><i class="ln"></i>数据流</span>
+        <span><i class="ln dash"></i>查维表 / 价格</span>
+        <span><i class="ln dot"></i>查询读取</span>
+      </div>
+      <div class="search">
+        <input id="q" type="search" placeholder="搜索字段，如 gmv、user_id" aria-label="搜索字段" autocomplete="off">
+        <div class="results" id="results" hidden></div>
+      </div>
+    </div>
+  </header>
+  <div class="main">
+    <div class="graph"><svg id="g" role="img" aria-label="R1 数据血缘图"></svg></div>
+    <aside class="panel" id="panel" aria-live="polite"></aside>
+  </div>
+  <p class="foot">节点 18 个：源文件 3、Kafka topic 4、MySQL 1、HBase 2、Doris 6、查询 2。维表里的等级、城市、价格是按 ID 哈希模拟的。</p>
+</div>
+
+<script>
+const SYS = {
+  file:  { label: "源文件", c: "--file" },  kafka: { label: "Kafka topic", c: "--kafka" },
+  mysql: { label: "MySQL", c: "--mysql" },  hbase: { label: "HBase", c: "--hbase" },
+  doris: { label: "Doris", c: "--doris" },  query: { label: "查询", c: "--query" },
+};
+const COLS = ["源数据", "接入：Kafka / MySQL / HBase", "计算中转：Kafka", "服务：Doris", "应用：查询"];
+
+// f(名称, 类型, 含义, 来源字段[], 计算方式)；来源写成 "节点id.字段"
+const f = (n, t, d, from = [], expr = "") => ({ n, t, d, from, expr });
+const NODES = [
+  { id: "csv_behavior", name: "behavior_sorted.csv", sys: "file", layer: "源数据", col: 0, row: 3.4,
+    desc: "UserBehavior 格式的抽样数据，9 天、50 万条，按时间排序后供回放器读取。",
+    fields: [f("user_id", "BIGINT", "用户 ID"), f("item_id", "BIGINT", "商品 ID"), f("category_id", "BIGINT", "类目 ID"),
+      f("behavior", "STRING", "行为：pv / cart / fav / buy"), f("ts", "BIGINT", "事件时间（毫秒）")] },
+  { id: "csv_user", name: "dim_user.csv", sys: "file", layer: "源数据", col: 0, row: 0,
+    desc: "prepare_data.py 生成的用户维表文件。原始数据没有等级和城市，按 user_id 哈希模拟。",
+    fields: [f("user_id", "BIGINT", "用户 ID"), f("level", "STRING", "等级，按哈希分配：bronze 50% / silver 30% / gold 15% / platinum 5%"),
+      f("city", "STRING", "城市，按哈希分到 10 个城市之一")] },
+  { id: "csv_item", name: "dim_item.csv", sys: "file", layer: "源数据", col: 0, row: 1.1,
+    desc: "prepare_data.py 生成的商品维表文件，价格按 item_id 哈希模拟。",
+    fields: [f("item_id", "BIGINT", "商品 ID"), f("category_id", "BIGINT", "类目 ID"), f("price", "DECIMAL(10,2)", "价格（元），按哈希模拟")] },
+
+  { id: "k_ods", name: "ods_user_behavior", sys: "kafka", layer: "ODS", col: 1, row: 3,
+    desc: "原始行为日志，3 个分区，key 是 user_id，所以同一用户有序。回放器按事件时间发送，并故意注入乱序和迟到。",
+    fields: [
+      f("key", "STRING", "消息 key，决定分区", ["csv_behavior.user_id"], "CAST(user_id AS STRING)"),
+      f("user_id", "BIGINT", "用户 ID", ["csv_behavior.user_id"], "原样"),
+      f("item_id", "BIGINT", "商品 ID", ["csv_behavior.item_id"], "原样"),
+      f("category_id", "BIGINT", "类目 ID", ["csv_behavior.category_id"], "原样"),
+      f("behavior", "STRING", "行为类型", ["csv_behavior.behavior"], "原样"),
+      f("ts", "BIGINT", "事件时间（毫秒）", ["csv_behavior.ts"], "原样；发送时刻 = ts + 随机乱序几秒"),
+      f("_late", "INT", "注入的迟到秒数（多数消息没有这个字段）", [], "回放器生成：0.5% 的消息记 30，1% 记 180，并推迟相应秒数发送")] },
+  { id: "mysql_orders", name: "orders", sys: "mysql", layer: "业务库", col: 1, row: 6.5,
+    desc: "模拟的业务库订单表（r1_shop）。每个 buy 行为写一条 PAID 订单，2% 的订单在 10 分钟后被改成 REFUNDED。",
+    fields: [
+      f("order_id", "BIGINT", "订单号（主键）", ["csv_behavior.behavior"], "每个 behavior = 'buy' 的行生成一单，序号自增"),
+      f("user_id", "BIGINT", "下单用户", ["csv_behavior.user_id"], "原样，只取 buy 行为"),
+      f("item_id", "BIGINT", "购买的商品", ["csv_behavior.item_id"], "原样，只取 buy 行为"),
+      f("amount", "DECIMAL(10,2)", "订单金额（元）", ["csv_item.price", "csv_behavior.item_id"], "按 item_id 查 dim_item.csv 的价格，查不到时用 9.90"),
+      f("status", "VARCHAR(16)", "PAID 已支付 / REFUNDED 已退款", [], "回放器生成：写入时 PAID；2% 的订单在 10 分钟（事件时间）后 UPDATE 成 REFUNDED"),
+      f("create_time", "DATETIME(3)", "下单时间", ["csv_behavior.ts"], "毫秒时间戳转北京时间"),
+      f("update_time", "DATETIME(3)", "最后修改时间", ["csv_behavior.ts"], "等于 create_time；退款单 = create_time + 10 分钟")] },
+  { id: "h_user", name: "dim_user", sys: "hbase", layer: "DIM", col: 1, row: 0,
+    desc: "用户维表。rowkey 加盐打散到 10 个预分区；由 Flink 作业 r1-load-dims 从 CSV 导入。",
+    fields: [
+      f("rowkey", "STRING", "加盐行键", ["csv_user.user_id"], "CONCAT(MOD(user_id, 10), '_', user_id)"),
+      f("f:level", "STRING", "用户等级", ["csv_user.level"], "原样"),
+      f("f:city", "STRING", "城市", ["csv_user.city"], "原样")] },
+  { id: "h_item", name: "dim_item", sys: "hbase", layer: "DIM", col: 1, row: 1.1,
+    desc: "商品维表。rowkey 加盐打散到 10 个预分区；由 Flink 作业 r1-load-dims 从 CSV 导入。",
+    fields: [
+      f("rowkey", "STRING", "加盐行键", ["csv_item.item_id"], "CONCAT(MOD(item_id, 10), '_', item_id)"),
+      f("f:category_id", "BIGINT", "类目 ID", ["csv_item.category_id"], "原样（存为 8 字节整数）"),
+      f("f:price", "DECIMAL(10,2)", "价格（元）", ["csv_item.price"], "原样（存为 4 字节精度 + 数值）")] },
+
+  { id: "k_dwd", name: "dwd_user_behavior", sys: "kafka", layer: "DWD", col: 2, row: 1.1,
+    desc: "清洗并补全维度后的明细，事务写入（精确一次）。key 和 ODS 相同，ODS 分区 p 的数据只进 DWD 分区 p。",
+    fields: [
+      f("user_key", "STRING", "消息 key", ["k_ods.user_id"], "CAST(user_id AS STRING)"),
+      f("user_id", "BIGINT", "用户 ID", ["k_ods.user_id"], "原样；过滤 user_id 为空的行"),
+      f("item_id", "BIGINT", "商品 ID", ["k_ods.item_id"], "原样"),
+      f("category_id", "BIGINT", "类目 ID", ["k_ods.category_id"], "原样（取日志里的类目，不取维表的）"),
+      f("behavior", "STRING", "行为类型", ["k_ods.behavior"], "只保留 pv / cart / fav / buy"),
+      f("ts", "BIGINT", "事件时间（毫秒）", ["k_ods.ts"], "原样；过滤 ts 为空的行"),
+      f("user_level", "STRING", "用户等级", ["h_user.f:level", "k_ods.user_id"], "LEFT JOIN dim_user FOR SYSTEM_TIME AS OF proc_time\nON rowkey = CONCAT(MOD(user_id, 10), '_', user_id)\n异步查询 + 本地缓存 20 万行；查不到为 NULL"),
+      f("city", "STRING", "城市", ["h_user.f:city", "k_ods.user_id"], "同 user_level，来自同一次 Lookup Join"),
+      f("price", "DECIMAL(10,2)", "商品价格", ["h_item.f:price", "k_ods.item_id"], "LEFT JOIN dim_item FOR SYSTEM_TIME AS OF proc_time\nON rowkey = CONCAT(MOD(item_id, 10), '_', item_id)\n异步查询 + 本地缓存 50 万行")] },
+  { id: "k_stream", name: "dws_behavior_1m_stream", sys: "kafka", layer: "DWS", col: 2, row: 2.9,
+    desc: "Java DataStream 作业 r1-late-data-job 的窗口结果，事务写入。",
+    fields: [
+      f("window_start", "STRING", "窗口开始时间", ["k_ods.ts"], "TumblingEventTimeWindows 1 分钟的开始时间\nWatermark = 最大 ts − 5 秒"),
+      f("behavior", "STRING", "行为类型", ["k_ods.behavior"], "keyBy(behavior)"),
+      f("cnt", "BIGINT", "窗口内条数", ["k_ods.ts", "k_ods.behavior"], "增量计数（AggregateFunction）\nallowedLateness 1 分钟：迟到数据到达时窗口再输出一次"),
+      f("emit_time", "STRING", "这次结果的输出时间", [], "作业输出结果时的系统时间")] },
+  { id: "k_late", name: "ods_late_events", sys: "kafka", layer: "DWD", col: 2, row: 3.95,
+    desc: "DataStream 作业的侧输出：到达时已超过「窗口结束 + 允许迟到 1 分钟」的数据，事务写入。",
+    fields: [
+      f("user_id", "BIGINT", "用户 ID", ["k_ods.user_id"], "原样；sideOutputLateData 输出的迟到事件"),
+      f("item_id", "BIGINT", "商品 ID", ["k_ods.item_id"], "原样"),
+      f("category_id", "BIGINT", "类目 ID", ["k_ods.category_id"], "原样"),
+      f("behavior", "STRING", "行为类型", ["k_ods.behavior"], "原样"),
+      f("ts", "BIGINT", "事件时间（毫秒）", ["k_ods.ts"], "原样"),
+      f("_late", "INT", "注入的迟到秒数", ["k_ods._late"], "原样")] },
+
+  { id: "d_traffic", name: "dws_traffic_category_1m", sys: "doris", layer: "DWS", col: 3, row: 0.2,
+    desc: "分钟 × 类目的流量指标。Flink SQL 作业 r1-dws-traffic 写入，UNIQUE KEY (window_start, category_id)。",
+    fields: [
+      f("window_start", "DATETIME(3)", "1 分钟窗口开始时间", ["k_dwd.ts"], "TUMBLE(event_time, INTERVAL '1' MINUTE) 的 window_start\nWatermark = event_time − 5 秒；窗口关闭后到的数据直接丢弃"),
+      f("category_id", "BIGINT", "类目 ID", ["k_dwd.category_id"], "GROUP BY window_start, window_end, category_id"),
+      f("pv", "BIGINT", "浏览次数", ["k_dwd.behavior", "k_dwd.ts"], "COUNT(*) FILTER (WHERE behavior = 'pv')"),
+      f("cart_cnt", "BIGINT", "加购次数", ["k_dwd.behavior", "k_dwd.ts"], "COUNT(*) FILTER (WHERE behavior = 'cart')"),
+      f("fav_cnt", "BIGINT", "收藏次数", ["k_dwd.behavior", "k_dwd.ts"], "COUNT(*) FILTER (WHERE behavior = 'fav')"),
+      f("buy_cnt", "BIGINT", "购买次数", ["k_dwd.behavior", "k_dwd.ts"], "COUNT(*) FILTER (WHERE behavior = 'buy')"),
+      f("uv", "BIGINT", "这一分钟、这个类目的去重用户数", ["k_dwd.user_id", "k_dwd.ts"], "COUNT(DISTINCT user_id)\n只在一个分钟内去重，不能跨分钟相加")] },
+  { id: "d_uvbm", name: "dws_uv_bitmap_1m", sys: "doris", layer: "DWS", col: 3, row: 1.2,
+    desc: "分钟 × 类目的用户集合。AGGREGATE KEY (window_start, category_id)，user_id 列是 BITMAP_UNION。",
+    fields: [
+      f("window_start", "DATETIME(3)", "1 分钟窗口开始时间", ["k_dwd.ts"], "同 dws_traffic_category_1m"),
+      f("category_id", "BIGINT", "类目 ID", ["k_dwd.category_id"], "GROUP BY"),
+      f("user_id", "BITMAP", "用户 ID 集合", ["k_dwd.user_id", "k_dwd.ts"], "Flink 按 (分钟, 类目, user_id) 去重后写出\nDoris 导入时 to_bitmap(user_id)，同键自动 BITMAP_UNION")] },
+  { id: "d_stream", name: "dws_behavior_1m_stream", sys: "doris", layer: "DWS", col: 3, row: 2.9,
+    desc: "DataStream 作业的分钟计数，Routine Load 从 Kafka 导入。UNIQUE KEY (window_start, behavior)。",
+    fields: [
+      f("window_start", "DATETIME(3)", "窗口开始时间", ["k_stream.window_start"], "字符串转 DATETIME(3)"),
+      f("behavior", "VARCHAR(8)", "行为类型", ["k_stream.behavior"], "原样"),
+      f("cnt", "BIGINT", "窗口内条数", ["k_stream.cnt"], "同一窗口再次输出时，新值覆盖旧值（UNIQUE 模型）"),
+      f("emit_time", "DATETIME(3)", "结果输出时间", ["k_stream.emit_time"], "原样")] },
+  { id: "d_late", name: "dwd_late_events", sys: "doris", layer: "DWD", col: 3, row: 3.95,
+    desc: "超过允许迟到时间的数据，Routine Load 从 topic ods_late_events 导入（read_committed）。",
+    fields: [
+      f("ts", "BIGINT", "事件时间（毫秒）", ["k_late.ts"], "原样"),
+      f("user_id", "BIGINT", "用户 ID", ["k_late.user_id"], "原样"),
+      f("item_id", "BIGINT", "商品 ID", ["k_late.item_id"], "原样"),
+      f("category_id", "BIGINT", "类目 ID", ["k_late.category_id"], "原样"),
+      f("behavior", "VARCHAR(8)", "行为类型", ["k_late.behavior"], "原样"),
+      f("late_delay", "INT", "注入的迟到秒数", ["k_late._late"], "jsonpaths：$._late")] },
+  { id: "d_ods", name: "ods_user_behavior", sys: "doris", layer: "ODS", col: 3, row: 5.1,
+    desc: "原始明细，包括迟到数据。Routine Load 直接从 Kafka ODS 导入，用来离线重算、和实时结果对账。",
+    fields: [
+      f("ts", "BIGINT", "事件时间（毫秒）", ["k_ods.ts"], "原样"),
+      f("user_id", "BIGINT", "用户 ID", ["k_ods.user_id"], "原样"),
+      f("item_id", "BIGINT", "商品 ID", ["k_ods.item_id"], "原样"),
+      f("category_id", "BIGINT", "类目 ID", ["k_ods.category_id"], "原样"),
+      f("behavior", "VARCHAR(8)", "行为类型", ["k_ods.behavior"], "原样"),
+      f("late_delay", "INT", "注入的迟到秒数，正常数据为空", ["k_ods._late"], "jsonpaths：$._late")] },
+  { id: "d_trade", name: "dws_trade_1m", sys: "doris", layer: "DWS", col: 3, row: 6.5,
+    desc: "分钟级交易指标。Flink SQL 作业 r1-dws-trade 读 MySQL CDC，退款会让已写入的数字回撤。UNIQUE KEY (minute_start)。",
+    fields: [
+      f("minute_start", "DATETIME(3)", "下单分钟", ["mysql_orders.create_time"], "FLOOR(create_time TO MINUTE)"),
+      f("order_cnt", "BIGINT", "仍是 PAID 的订单数", ["mysql_orders.order_id", "mysql_orders.status", "mysql_orders.create_time"], "COUNT(*) FILTER (WHERE status = 'PAID')\n退款时 CDC 先撤回旧行、再加新行，计数随之减少"),
+      f("gmv", "DECIMAL(16,2)", "PAID 订单金额合计（元）", ["mysql_orders.amount", "mysql_orders.status", "mysql_orders.create_time"], "SUM(amount) FILTER (WHERE status = 'PAID')\n退款后这一分钟的 GMV 回撤"),
+      f("refund_cnt", "BIGINT", "后来退款的订单数", ["mysql_orders.status", "mysql_orders.create_time"], "COUNT(*) FILTER (WHERE status = 'REFUNDED')")] },
+
+  { id: "q_dash", name: "大屏查询", sys: "query", layer: "ADS", col: 4, row: 1.1,
+    desc: "ads_dashboard.sql 第 1–4 项。ADS 层不建表，直接查 DWS（实验 8：P99 9 毫秒）。",
+    fields: [
+      f("每日 PV", "指标", "按天汇总的浏览次数", ["d_traffic.pv", "d_traffic.window_start"], "SUM(pv) GROUP BY DATE(window_start)"),
+      f("每日 UV", "指标", "按天精确去重的用户数", ["d_uvbm.user_id", "d_uvbm.window_start"], "BITMAP_UNION_COUNT(user_id) GROUP BY DATE(window_start)\n分钟 UV 直接相加会多算约 10.7 倍（实验 6）"),
+      f("加购转化率", "指标", "浏览 → 加购 → 购买", ["d_traffic.pv", "d_traffic.cart_cnt", "d_traffic.buy_cnt"], "SUM(cart_cnt) / SUM(pv)，SUM(buy_cnt) / SUM(cart_cnt)"),
+      f("每小时 GMV", "指标", "按小时汇总的成交额", ["d_trade.gmv", "d_trade.order_cnt", "d_trade.refund_cnt", "d_trade.minute_start"], "SUM(gmv) GROUP BY HOUR_FLOOR(minute_start)"),
+      f("类目购买 Top 10", "指标", "购买次数最多的类目", ["d_traffic.category_id", "d_traffic.buy_cnt", "d_traffic.pv"], "SUM(buy_cnt) GROUP BY category_id ORDER BY 2 DESC LIMIT 10")] },
+  { id: "q_recon", name: "对账查询", sys: "query", layer: "ADS", col: 4, row: 4.5,
+    desc: "ads_dashboard.sql 第 6–10 项：用 ODS 明细离线重算，证明实时结果正确。",
+    fields: [
+      f("对账 A diff", "指标", "SQL 窗口丢掉的迟到条数", ["d_ods.behavior", "d_ods.ts", "d_traffic.pv", "d_traffic.window_start"], "离线按分钟 COUNT(pv) − 实时 SUM(pv)\n第一轮：447,482 条 pv 共差 62 条"),
+      f("对账 B unexplained", "指标", "实时 + 迟到 = 离线？", ["d_ods.behavior", "d_ods.ts", "d_stream.cnt", "d_stream.window_start", "d_late.behavior", "d_late.ts"], "离线 − 实时 − 侧输出\n第一轮：447,482 − 444,901 − 2,581 = 0"),
+      f("迟到去向", "指标", "注入的迟到数据有多少进了侧输出", ["d_ods.late_delay", "d_late.late_delay"], "按 late_delay 分组，比较两边条数\n第一轮：180 秒的 4,946 条里 2,890 条进了侧输出"),
+      f("GMV 对账", "指标", "实时 GMV = 业务库 GMV？", ["d_trade.gmv", "d_trade.order_cnt", "mysql_orders.amount", "mysql_orders.status"], "Doris SUM(gmv) 对比 MySQL SUM(amount) WHERE status = 'PAID'\n第一轮：10,333 单 / 921,384.16 元，两边一致")] },
+];
+const EDGES = [
+  ["csv_behavior", "k_ods", "回放器", "flow"], ["csv_behavior", "mysql_orders", "回放器：buy 生成订单", "flow"],
+  ["csv_item", "mysql_orders", "回放器查价格", "lookup"],
+  ["csv_user", "h_user", "r1-load-dims", "flow"], ["csv_item", "h_item", "r1-load-dims", "flow"],
+  ["k_ods", "k_dwd", "r1-dwd-user-behavior", "flow"],
+  ["h_user", "k_dwd", "Lookup Join", "lookup"], ["h_item", "k_dwd", "Lookup Join", "lookup"],
+  ["k_ods", "k_stream", "r1-late-data-job：窗口结果", "flow"], ["k_ods", "k_late", "r1-late-data-job：侧输出", "flow"],
+  ["k_ods", "d_ods", "Routine Load", "flow"],
+  ["k_stream", "d_stream", "Routine Load", "flow"], ["k_late", "d_late", "Routine Load", "flow"],
+  ["k_dwd", "d_traffic", "r1-dws-traffic", "flow"], ["k_dwd", "d_uvbm", "r1-dws-traffic", "flow"],
+  ["mysql_orders", "d_trade", "r1-dws-trade（CDC）", "flow"],
+  ["d_traffic", "q_dash", "查询", "query"], ["d_uvbm", "q_dash", "查询", "query"], ["d_trade", "q_dash", "查询", "query"],
+  ["d_ods", "q_recon", "查询", "query"], ["d_traffic", "q_recon", "查询", "query"], ["d_stream", "q_recon", "查询", "query"],
+  ["d_late", "q_recon", "查询", "query"], ["d_trade", "q_recon", "查询", "query"], ["mysql_orders", "q_recon", "查询", "query"],
+].map(([s, t, job, kind]) => ({ s, t, job, kind }));
+
+const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
+const fieldKey = (nid, fn) => nid + "." + fn;
+const FIELD = {};
+NODES.forEach(n => n.fields.forEach(x => { FIELD[fieldKey(n.id, x.n)] = { node: n, ...x }; }));
+const USED_BY = {};
+Object.entries(FIELD).forEach(([k, v]) => v.from.forEach(src => (USED_BY[src] ||= []).push(k)));
+
+// ---------- 画图 ----------
+const W = 196, H = 48, X0 = 16, DX = 262, Y0 = 52, DY = 70;
+const pos = n => ({ x: X0 + n.col * DX, y: Y0 + n.row * DY });
+const svg = document.getElementById("g");
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const width = X0 + 4 * DX + W + X0, height = Y0 + 6.5 * DY + H + 16;
+svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+COLS.forEach((c, i) => { const t = el("text", { x: X0 + i * DX, y: 26, class: "colhead" }, svg); t.textContent = c; });
+const gEdges = el("g", {}, svg), gNodes = el("g", {}, svg), gLabels = el("g", {}, svg);
+
+EDGES.forEach(e => {
+  const a = pos(byId[e.s]), b = pos(byId[e.t]);
+  const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x - 2, y2 = b.y + H / 2, c = Math.max(40, (x2 - x1) / 2);
+  e.path = el("path", { d: `M${x1},${y1} C${x1 + c},${y1} ${x2 - c},${y2} ${x2},${y2}`, class: "edge " + e.kind }, gEdges);
+  e.mid = { x: (x1 + 3 * (x1 + c) + 3 * (x2 - c) + x2) / 8, y: (y1 + 3 * y1 + 3 * y2 + y2) / 8 };
+});
+NODES.forEach(n => {
+  const p = pos(n), s = SYS[n.sys];
+  const g = el("g", { class: "node", tabindex: "0", role: "button", "aria-label": `${n.name}（${s.label}）` }, gNodes);
+  el("rect", { class: "box", x: p.x, y: p.y, width: W, height: H, rx: 7, style: `fill:var(${s.c}-bg);stroke:var(${s.c})` }, g);
+  const nm = el("text", { class: "nm", x: p.x + 10, y: p.y + 20, style: `fill:var(--fg)` }, g); nm.textContent = n.name;
+  const sub = el("text", { class: "sub", x: p.x + 10, y: p.y + 37, style: `fill:var(${s.c})` }, g); sub.textContent = `${s.label} · ${n.layer} · ${n.fields.length} 个${n.sys === "query" ? "指标" : "字段"}`;
+  g.addEventListener("click", ev => { ev.stopPropagation(); selectNode(n.id); });
+  g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); selectNode(n.id); } });
+  n.g = g;
+});
+svg.addEventListener("click", () => reset());
+
+// ---------- 高亮 ----------
+function closure(start, dir) {
+  const seen = new Set(), stack = [...start];
+  while (stack.length) { const x = stack.pop(); if (seen.has(x)) continue; seen.add(x);
+    EDGES.forEach(e => { if (dir === "up" && e.t === x) stack.push(e.s); if (dir === "down" && e.s === x) stack.push(e.t); }); }
+  return seen;
+}
+function fieldClosure(start, dir) {
+  const seen = new Set(), stack = [start];
+  while (stack.length) { const k = stack.pop(); if (seen.has(k)) continue; seen.add(k);
+    (dir === "up" ? (FIELD[k]?.from || []) : (USED_BY[k] || [])).forEach(x => stack.push(x)); }
+  return seen;
+}
+function paint(nodeSet, sel) {
+  gLabels.innerHTML = "";
+  NODES.forEach(n => { const on = nodeSet ? nodeSet.has(n.id) : true;
+    n.g.classList.toggle("dim", !on); n.g.classList.toggle("on", !!nodeSet && on); n.g.classList.toggle("sel", n.id === sel); });
+  EDGES.forEach(e => { const on = nodeSet && nodeSet.has(e.s) && nodeSet.has(e.t);
+    e.path.classList.toggle("on", !!on); e.path.classList.toggle("dim", !!nodeSet && !on);
+    if (on && e.kind !== "query") {
+      const g = el("g", { class: "elabel" }, gLabels), t = el("text", { x: e.mid.x, y: e.mid.y + 3.5, "text-anchor": "middle" }, g);
+      t.textContent = e.job; const bb = t.getBBox();
+      g.insertBefore(el("rect", { x: bb.x - 4, y: bb.y - 1.5, width: bb.width + 8, height: bb.height + 3, rx: 3 }), t);
+    } });
+}
+
+// ---------- 面板 ----------
+const panel = document.getElementById("panel");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const refBtn = k => { const [nid, ...rest] = k.split("."); const fn = rest.join("."); return `<button class="ref" data-field="${esc(k)}">${esc(byId[nid].name)}.${esc(fn)}</button>`; };
+const tag = n => `<span class="tag" style="color:var(${SYS[n.sys].c});border-color:var(${SYS[n.sys].c});background:var(${SYS[n.sys].c}-bg)">${SYS[n.sys].label}</span><span class="tag" style="color:var(--muted);border-color:var(--line)">${esc(n.layer)}</span>`;
+
+function upTree(k, seen, depth) {
+  const x = FIELD[k];
+  const how = x.expr ? `<span class="how">${esc(x.expr).replace(/\n/g, "<br>")}</span>` : "";
+  if (!x.from.length) return `<li>${refBtn(k)}<span class="src">源头</span>${how}</li>`;
+  if (seen.has(k) || depth > 8) return `<li>${refBtn(k)} <span class="how">（上面已展开）</span></li>`;
+  seen.add(k);
+  return `<li>${refBtn(k)}${how}<ul>${x.from.map(s => upTree(s, seen, depth + 1)).join("")}</ul></li>`;
+}
+function selectField(k) {
+  const x = FIELD[k], n = x.node;
+  const up = fieldClosure(k, "up"), down = fieldClosure(k, "down");
+  const nodes = new Set([...up, ...down].map(z => z.split(".")[0]));
+  paint(nodes, n.id);
+  const downList = [...down].filter(z => z !== k);
+  const groups = {};
+  downList.forEach(z => { const nid = z.split(".")[0]; (groups[nid] ||= []).push(z); });
+  const downHtml = downList.length
+    ? `<ul class="links">${Object.entries(groups).map(([nid, ks]) => `<li><span class="job">${esc(byId[nid].name)}：</span>${ks.map(z => refBtn(z)).join("、")}</li>`).join("")}</ul>`
+    : `<p class="desc" style="color:var(--muted)">没有下游字段用到它。</p>`;
+  panel.innerHTML = `
+    <div class="tags">${tag(n)}</div>
+    <h2>${esc(n.name)}.${esc(x.n)}</h2>
+    <p class="desc">${esc(x.d)}<span style="color:var(--muted)"> · ${esc(x.t)}</span></p>
+    <div><h3>怎么算出来的</h3><div class="expr">${esc(x.expr || "源头字段：直接来自数据文件")}</div></div>
+    <div><h3>上游链路（一直追到源头）</h3><ul class="hops">${x.from.length ? x.from.map(s => upTree(s, new Set(), 1)).join("") : "<li class='how'>这是源头字段。</li>"}</ul></div>
+    <div><h3>下游影响（改它会影响这些）</h3>${downHtml}</div>
+    <button class="reset" data-node="${n.id}">← 回到 ${esc(n.name)}</button>`;
+}
+function selectNode(id) {
+  const n = byId[id];
+  const set = new Set([...closure([id], "up"), ...closure([id], "down")]);
+  paint(set, id);
+  const ins = EDGES.filter(e => e.t === id), outs = EDGES.filter(e => e.s === id);
+  const li = (e, other) => `<li><button class="ref" data-node="${other}">${esc(byId[other].name)}</button> <span class="job">· ${esc(e.job)}</span></li>`;
+  panel.innerHTML = `
+    <div class="tags">${tag(n)}</div>
+    <h2>${esc(n.name)}</h2>
+    <p class="desc">${esc(n.desc)}</p>
+    <div><h3>直接上游</h3>${ins.length ? `<ul class="links">${ins.map(e => li(e, e.s)).join("")}</ul>` : `<p class="desc" style="color:var(--muted)">没有，这是源头。</p>`}</div>
+    <div><h3>直接下游</h3>${outs.length ? `<ul class="links">${outs.map(e => li(e, e.t)).join("")}</ul>` : `<p class="desc" style="color:var(--muted)">没有，这是终点。</p>`}</div>
+    <div><h3>${n.sys === "query" ? "指标" : "字段"}（点一个看它的血缘）</h3><ul class="flist">${n.fields.map(x =>
+      `<li><button data-field="${esc(fieldKey(id, x.n))}"><span class="fn">${esc(x.n)}</span><span class="fd">${esc(x.d)}</span></button></li>`).join("")}</ul></div>`;
+}
+function reset() {
+  paint(null, null);
+  panel.innerHTML = `<h2 style="font-family:var(--font-body)">从一张表或一个字段开始</h2>
+    <p class="desc">图里共 18 个节点，从左到右是数据流动的方向。实线是数据流，虚线是查维表或查价格，点线是查询读取。</p>
+    <p class="desc">可以先看 <button class="ref" data-field="d_trade.gmv">dws_trade_1m.gmv</button>：从订单金额到大屏 GMV 的完整链路。</p>`;
+}
+panel.addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if (!b) return;
+  if (b.dataset.field) selectField(b.dataset.field); else if (b.dataset.node) selectNode(b.dataset.node);
+});
+
+// ---------- 搜索 ----------
+const q = document.getElementById("q"), results = document.getElementById("results");
+q.addEventListener("input", () => {
+  const s = q.value.trim().toLowerCase();
+  if (!s) { results.hidden = true; return; }
+  const hits = Object.keys(FIELD).filter(k => { const x = FIELD[k]; return x.n.toLowerCase().includes(s) || x.d.toLowerCase().includes(s) || x.node.name.toLowerCase().includes(s); }).slice(0, 12);
+  results.innerHTML = hits.length ? hits.map(k => `<button data-field="${esc(k)}">${esc(FIELD[k].node.name)}.<b>${esc(FIELD[k].n)}</b></button>`).join("") : `<div class="none">没有匹配的字段</div>`;
+  results.hidden = false;
+});
+results.addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return; selectField(b.dataset.field); results.hidden = true; q.value = ""; });
+document.addEventListener("click", ev => { if (!ev.target.closest(".search")) results.hidden = true; });
+q.addEventListener("keydown", ev => { if (ev.key === "Enter") { const b = results.querySelector("button"); if (b) b.click(); } if (ev.key === "Escape") results.hidden = true; });
+
+selectField("d_trade.gmv");
+</script>
+</html>
