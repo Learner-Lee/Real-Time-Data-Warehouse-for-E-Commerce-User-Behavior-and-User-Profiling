@@ -1,0 +1,670 @@
+{
+  "uid": "r1-dashboard",
+  "title": "R1 电商实时大屏",
+  "tags": [
+    "r1"
+  ],
+  "timezone": "utc",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "2017-11-25T00:00:00.000Z",
+    "to": "2017-12-04T00:00:00.000Z"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "description": "Grafana 直连 Doris r1_dw，每 5 秒刷新。时间轴是事件时间（北京时间，按 UTC 显示）。",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "浏览量 PV",
+      "description": "dws_traffic_category_1m 所有分钟相加",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT SUM(pv) AS pv FROM dws_traffic_category_1m"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "访客数 UV（去重）",
+      "description": "dws_uv_bitmap_1m 全部 BITMAP 合并后精确去重；每天的 UV 不能直接相加",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT BITMAP_UNION_COUNT(user_id) AS uv FROM dws_uv_bitmap_1m"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "已支付订单",
+      "description": "dws_trade_1m，不含已退款订单",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT SUM(order_cnt) AS orders FROM dws_trade_1m"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "GMV（元）",
+      "description": "dws_trade_1m，退款金额已撤回",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT SUM(gmv) AS gmv FROM dws_trade_1m"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "退款订单",
+      "description": "dws_trade_1m",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT SUM(refund_cnt) AS refunds FROM dws_trade_1m"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "回放进度（事件时间）",
+      "description": "DWS 流量表里最新的 1 分钟窗口。回放时它会一直往前走",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DATE_FORMAT(MAX(window_start), '%m-%d %H:%i') AS latest FROM dws_traffic_category_1m"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "每小时 GMV（元）",
+      "description": "按下单时间归到小时；订单退款后，金额从下单那个小时里扣掉",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT HOUR_FLOOR(minute_start) AS time, SUM(gmv) AS GMV FROM dws_trade_1m GROUP BY HOUR_FLOOR(minute_start) ORDER BY time"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "每小时 PV 和 UV",
+      "description": "UV 是每小时内的去重人数（BITMAP 合并），画在右侧坐标轴",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 14,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT HOUR_FLOOR(window_start) AS time, SUM(pv) AS PV FROM dws_traffic_category_1m GROUP BY HOUR_FLOOR(window_start) ORDER BY time"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT HOUR_FLOOR(window_start) AS time, BITMAP_UNION_COUNT(user_id) AS UV FROM dws_uv_bitmap_1m GROUP BY HOUR_FLOOR(window_start) ORDER BY time"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UV"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "购买次数最多的 10 个类目",
+      "description": "dws_traffic_category_1m 按类目汇总",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 12,
+        "w": 10,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CONCAT('类目 ', CAST(category_id AS STRING)) AS category, SUM(buy_cnt) AS buy FROM dws_traffic_category_1m GROUP BY category_id ORDER BY buy DESC LIMIT 10"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "转化漏斗",
+      "description": "全部时间合计；条长按浏览量的比例画",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT '1 浏览' AS step, SUM(pv) AS cnt FROM dws_traffic_category_1m UNION ALL SELECT '2 加购', SUM(cart_cnt) FROM dws_traffic_category_1m UNION ALL SELECT '3 收藏', SUM(fav_cnt) FROM dws_traffic_category_1m UNION ALL SELECT '4 购买', SUM(buy_cnt) FROM dws_traffic_category_1m ORDER BY step"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "各层数据新鲜度",
+      "description": "回放时，各层最新数据的事件时间越接近越好。ODS 走 Routine Load，可能短暂落后",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 20,
+        "w": 16,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT 'ODS 明细（Routine Load）' AS `层`, FROM_MILLISECOND(MAX(ts)) AS `最新数据` FROM ods_user_behavior UNION ALL SELECT 'DWS 流量（Flink SQL）', MAX(window_start) FROM dws_traffic_category_1m UNION ALL SELECT 'DWS 交易（Flink CDC）', MAX(minute_start) FROM dws_trade_1m UNION ALL SELECT 'DWS 计数（DataStream）', MAX(window_start) FROM dws_behavior_1m_stream"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "每日明细",
+      "description": "和 ads_dashboard.sql 第 1、3 项同口径",
+      "datasource": {
+        "type": "mysql",
+        "uid": "doris-r1"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "mysql",
+            "uid": "doris-r1"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DATE_FORMAT(t.dt, '%Y-%m-%d') AS `日期`, t.pv AS `浏览`, u.uv AS `访客`, t.cart AS `加购`, t.fav AS `收藏`, t.buy AS `购买行为`, d.orders AS `已支付订单`, d.gmv AS `GMV（元）`, d.refunds AS `退款单` FROM (SELECT DATE(window_start) AS dt, SUM(pv) pv, SUM(cart_cnt) cart, SUM(fav_cnt) fav, SUM(buy_cnt) buy FROM dws_traffic_category_1m GROUP BY DATE(window_start)) t LEFT JOIN (SELECT DATE(window_start) AS dt, BITMAP_UNION_COUNT(user_id) uv FROM dws_uv_bitmap_1m GROUP BY DATE(window_start)) u ON t.dt = u.dt LEFT JOIN (SELECT DATE(minute_start) AS dt, SUM(order_cnt) orders, SUM(gmv) gmv, SUM(refund_cnt) refunds FROM dws_trade_1m GROUP BY DATE(minute_start)) d ON t.dt = d.dt ORDER BY t.dt"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

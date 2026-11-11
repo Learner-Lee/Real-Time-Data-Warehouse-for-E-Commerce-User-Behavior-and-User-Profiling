@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
-# 停止 R1 组件。用法：r1-stop.sh [flink doris hbase kafka mysql]
+# 停止 R1 组件。用法：r1-stop.sh [grafana flink doris hbase kafka mysql]
 # 不带参数就按启动的相反顺序停掉除 MySQL 以外的全部组件（MySQL 占内存少，默认一直开着）
 source "$(dirname "$0")/../lib/common.sh"
+
+stop_grafana() {
+  pkill -f 'grafana server' || return 0
+  for _ in $(seq 1 15); do
+    pgrep -f 'grafana server' >/dev/null || return 0
+    sleep 1
+  done
+  warn "Grafana 15 秒内没有退出"
+}
 
 stop_flink() { "$FLINK_HOME/bin/stop-cluster.sh" || true; }
 
@@ -25,14 +34,14 @@ stop_kafka() {
 stop_mysql() { sudo systemctl stop mysql; }
 
 if [[ $# -eq 0 ]]; then
-  set -- flink doris hbase kafka
+  set -- grafana flink doris hbase kafka
 fi
 for component in "$@"; do
   case "$component" in
-    mysql | kafka | hbase | doris | flink)
+    mysql | kafka | hbase | doris | flink | grafana)
       log "停止 $component"
       "stop_$component"
       ;;
-    *) die "不认识的组件：$component（可选：flink doris hbase kafka mysql）" ;;
+    *) die "不认识的组件：$component（可选：grafana flink doris hbase kafka mysql）" ;;
   esac
 done

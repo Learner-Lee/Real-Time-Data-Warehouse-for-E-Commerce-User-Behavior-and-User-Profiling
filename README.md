@@ -48,6 +48,13 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
 
 </details>
 
+## 大屏
+
+![大屏截图：第一轮回放后的 PV、UV、订单、GMV、退款和每小时 GMV](assets/dashboard-snapshot.jpg)
+
+- **截图**是第一轮回放结束后的快照：9 天 447,519 次浏览、7,797 名访客（BITMAP 去重；每天的 UV 直接相加是 18,116）、已支付 10,333 单、GMV 921,384.16 元、退款 232 单。GMV 和直接在 MySQL 里算的一致。
+- **实时版**用 Grafana 直连 Doris，每 5 秒刷新，回放时指标和曲线跟着变：运行 [setup/07-grafana.sh](setup/07-grafana.sh)，然后打开 `http://虚拟机IP:3000`。数据源和 12 个面板都预置在 [setup/conf/grafana/](setup/conf/grafana/r1-dashboard.json)。
+
 ## 数据血缘与表结构
 
 - **交互式血缘图**：[docs/lineage.html](docs/lineage.html)。18 个节点、89 个字段的表级和字段级血缘：点一张表看上下游，点一个字段看它从哪来、怎么算、影响哪些指标。GitHub 不直接渲染 HTML，下载后用浏览器打开。
@@ -79,4 +86,4 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
 ## 还没做的
 
 - 实验 1 峰值吞吐（`replay.sh --speed 0 --max-rate 20000`）、实验 5 维表缓存对吞吐的影响。
-- Flume 采集、Superset / Grafana 大屏、用户画像模型（RFM + K-Means）。
+- Flume 采集、用户画像模型（RFM + K-Means）。

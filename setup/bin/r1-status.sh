@@ -28,6 +28,7 @@ show "DorisFE"  'DorisFE'                             9030
 show "DorisBE"  'doris_be'                            9050
 show "FlinkJM"  'StandaloneSessionClusterEntrypoint'  8081
 show "FlinkTM"  'TaskManagerRunner'                   -
+show "Grafana"  'grafana server'                      3000
 echo
 free -h | awk 'NR == 2 { print "虚拟机内存：已用 " $3 " / 共 " $2 "，可用 " $7 }'
 df -h "$DATA_DIR" | awk 'NR == 2 { print "数据盘：已用 " $3 " / 共 " $2 "，剩余 " $4 }'

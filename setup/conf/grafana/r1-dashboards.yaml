@@ -1,0 +1,12 @@
+# 从目录加载大屏 JSON。allowUiUpdates: true 允许在网页上改，但重跑 07-grafana.sh 会用仓库里的 JSON 覆盖
+apiVersion: 1
+
+providers:
+  - name: r1
+    folder: R1
+    type: file
+    disableDeletion: true
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: "@DASHBOARD_DIR@"

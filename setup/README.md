@@ -25,6 +25,7 @@
 | `04-doris.sh` | Doris 4.0.8（FE + BE），并把 BE 注册到 FE |
 | `05-flink.sh` | Flink 1.20.5，加上 Kafka、MySQL CDC、HBase、Doris 连接器，以及 MySQL 驱动和 Hadoop 客户端 |
 | `06-python.sh` | Python 虚拟环境（回放器、画像模型用） |
+| `07-grafana.sh`（可选） | Grafana 12.3.0 实时大屏：直连 Doris，每 5 秒刷新；数据源和大屏都预置好，装完就能看 |
 | `bin/r1-start.sh`、`r1-stop.sh`、`r1-status.sh` | 日常启动、停止、看状态 |
 | `smoke/run-smoke.sh` | 冒烟测试：三条链路都把数据写进 Doris |
 | `conf/`、`lib/` | 配置模板和公共函数，一般不用改 |
@@ -50,6 +51,7 @@
    | 6 | `bash 05-flink.sh` | TaskManager 数 1，slot 总数 4 |
    | 7 | `bash 06-python.sh` | 依赖全部可用 |
    | 8 | `bash smoke/run-smoke.sh` | 三项检查都显示「通过」 |
+   | 9（可选） | `bash 07-grafana.sh` | 打印出 `"database": "ok"`，浏览器打开 `http://虚拟机IP:3000` 能看到「R1 电商实时大屏」 |
 
 4. **拍快照**：冒烟测试通过后，在 VMware 里拍一个快照，命名「R1 环境就绪」。
 5. **省磁盘（可选）**：确认一切正常后，可以删掉 `/opt/software` 里的安装包，省出约 4.7GB。以后重跑安装脚本会重新下载。
@@ -69,6 +71,7 @@
 - Flink：`http://虚拟机IP:8081`
 - Doris：`http://虚拟机IP:8030`（用户 root，密码为空）
 - HBase：`http://虚拟机IP:16010`
+- Grafana 大屏：`http://虚拟机IP:3000`（不登录就能看；要改面板用 admin 登录，默认密码 admin，第一次登录会要求改）。装了 Grafana 后，`r1-start.sh`、`r1-stop.sh` 会一起启停它
 
 ## 四、设计说明（面试可以讲）
 
