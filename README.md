@@ -4,7 +4,8 @@
 - **数据**：回放器按事件时间回放 9 天、50 万条用户行为，并故意注入乱序和迟到；
 - **计算**：Flink SQL 和 DataStream 两套作业；
 - **存储**：Kafka、HBase 维表和 Doris；
-- **验证**：用三种对账证明结果正确，强杀 TaskManager 后数据不丢、不重复。
+- **验证**：用三种对账证明结果正确，强杀 TaskManager 后数据不丢、不重复；
+- **画像**：从 DWS 沉淀 55 个用户特征，做 RFM + K-Means 分群和 XGBoost 复购预测，标签写回 Doris。
 
 > 版本：Flink 1.20.5、Kafka 4.3.2（KRaft）、HBase 2.6.7、Doris 4.0.8、MySQL 8.0、JDK 17
 
@@ -55,6 +56,28 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
 - **截图**是第一轮回放结束后的快照：9 天 447,519 次浏览、7,797 名访客（BITMAP 去重；每天的 UV 直接相加是 18,116）、已支付 10,333 单、GMV 921,384.16 元、退款 232 单。GMV 和直接在 MySQL 里算的一致。
 - **实时版**用 Grafana 直连 Doris，每 5 秒刷新，回放时指标和曲线跟着变：运行 [setup/07-grafana.sh](setup/07-grafana.sh)，然后打开 `http://虚拟机IP:3000`。数据源和 12 个面板都预置在 [setup/conf/grafana/](setup/conf/grafana/r1-dashboard.json)。
 
+## 用户画像
+
+回放结束后运行 `bash mvp/bin/profile.sh`（在虚拟机的 `~/r1-realtime-dw` 里是 `bash bin/profile.sh`），约 15 秒跑完：
+
+```
+ODS 明细 ──Doris SQL──→ dws_user_behavior_1d（用户 × 天）──→ dws_user_feature（55 个特征）
+                                                                  ├──→ RFM + K-Means 分群
+MySQL 订单（金额、退款）、用户维表 ─────────────────────────────────┤
+                                                                  └──→ XGBoost：未来 3 天是否购买
+                                                                            ↓
+                                                         ads_user_profile_tag（每个用户一行画像标签）
+```
+
+| 项 | 结果（模拟数据） |
+|---|---|
+| 特征 | 55 个，每个都有中文说明，写在 Doris 列注释里；特征只用截止时间之前的数据 |
+| 分群 | 669 个买过的用户；K 由轮廓系数在 3–8 里选出，为 5 群（如「近期超高频超高额」「沉睡中频低额」） |
+| 复购模型 | 按时间切分，测试集 AUC **0.910**，PR-AUC 0.663；调参只在训练集内部做 |
+| 基线对照 | 只用「行为次数」一个特征的 AUC 也是 **0.911** |
+
+**这些数字只说明链路跑通了。** 模拟数据里，买不买只和活跃度有关，所以模型和单特征基线持平。要得到有意义的结果，需要换真实的 UserBehavior 数据重跑，代码不用改。详见 [docs/06.15-R1用户画像链路.md](docs/06.15-R1用户画像链路.md)。
+
 ## 数据血缘与表结构
 
 - **交互式血缘图**：[docs/lineage.html](docs/lineage.html)。18 个节点、89 个字段的表级和字段级血缘：点一张表看上下游，点一个字段看它从哪来、怎么算、影响哪些指标。GitHub 不直接渲染 HTML，下载后用浏览器打开。
@@ -86,4 +109,6 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
 ## 还没做的
 
 - 实验 1 峰值吞吐（`replay.sh --speed 0 --max-rate 20000`）、实验 5 维表缓存对吞吐的影响。
-- Flume 采集、用户画像模型（RFM + K-Means）。
+- Flume 采集。
+- 用真实的 UserBehavior 数据重跑用户画像（现在是模拟数据，复购模型和单特征基线持平）。
+- 血缘图和表结构 Excel 还没加上画像的 3 张表。

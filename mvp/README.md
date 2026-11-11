@@ -13,7 +13,7 @@ MVP 跑通「回放 → Kafka → Flink（SQL + DataStream）→ Doris」整条�
 - Doris 大屏（UV / GMV / 转化漏斗）；
 - Checkpoint + Kafka 两阶段提交实现 Exactly-Once。
 
-**留给完整版**：Flume 采集、Superset 或 Grafana 大屏、用户画像模型（RFM + K-Means、XGBoost）。
+**留给完整版**：Flume 采集。大屏（Grafana，见环境脚本 `07-grafana.sh`）和用户画像链路（`bin/profile.sh`，目前用模拟数据跑通）已补上。
 
 **已在 Mac 上验证的**（没有虚拟机也能跑的部分）：
 - Java 作业 3 个单元测试通过：三道防线的结果和设计一致。
@@ -58,7 +58,9 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
 | `sql/hbase_tables.rb`、`mysql_orders.sql` | HBase 维表、MySQL 订单表 |
 | `sql/ads_dashboard.sql` | 大屏查询 + 三种对账 |
 | `late-data-job/` | Java DataStream 作业（Maven 工程），测试里顺带校验所有 Flink SQL |
-| `bin/` | `prepare`、`setup`、`start_jobs`、`replay`、`check`、`bench_query`、`stop_jobs`、`reset` |
+| `sql/profile_tables.sql` | 画像：用户 × 天的 DWS 表、标签表，从 ODS 生成 DWS 的批处理 SQL |
+| `user_profile/` | 画像：55 个特征的定义和计算（`features.py`）、RFM + K-Means + XGBoost + 标签回写（`run_profile.py`） |
+| `bin/` | `prepare`、`setup`、`start_jobs`、`replay`、`check`、`bench_query`、`profile`、`stop_jobs`、`reset` |
 
 ## 三、运行步骤
 
@@ -88,6 +90,7 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
    | 4 | `bash bin/replay.sh` | 开始回放（默认 1 秒回放 10 分钟事件时间，9 天数据约 22 分钟放完） |
    | 5 | `bash bin/check.sh` | 看各层数据量、最新数据时间和 Routine Load 状态 |
    | 6 | `sql/ads_dashboard.sql` | 在 Doris 里跑大屏查询；回放结束后跑对账 |
+   | 7 | `bash bin/profile.sh` | 回放结束后跑用户画像：DWS 用户表 → 55 个特征 → RFM + K-Means → XGBoost 未来 3 天购买预测 → 标签写回 `ads_user_profile_tag`，报告在 `/data/r1-work/profile/report.md` |
 
 4. **重做实验**：`bash bin/reset.sh`（清空 Doris、Kafka、MySQL 里的 R1 数据，维表和回放文件保留），然后从第 2 步开始。
 
@@ -115,6 +118,7 @@ HBase dim_user / dim_item：维表（加盐 rowkey + 预分区），由 Flink �
 | HBase 维表通过异步 IO 做 Lookup Join | `10_dwd_user_behavior.sql`：`lookup.async` + 部分缓存；rowkey 加盐 + 预分区 |
 | Doris 大屏：UV / GMV / 转化漏斗，P95 < 1s | `ads_dashboard.sql` 第 1–4 条；`bench_query.sh` 测 P95 |
 | Checkpoint + Kafka 两阶段提交实现 Exactly-Once | DWD 和 Java 作业的 Kafka sink 都开事务；下游用 read_committed 读；Doris sink 也是两阶段提交 |
+| 基于 DWS 沉淀 50+ 用户特征，RFM + K-Means 分群，XGBoost 复购预测，结果回写画像标签 | `bin/profile.sh`：55 个特征（`dws_user_feature`）；K 由轮廓系数选（模拟数据上是 5）；按时间切分的测试集 AUC 0.91，但和「只用行为次数」的基线一样，因为模拟数据的购买只和活跃度有关；标签表 `ads_user_profile_tag`。**数字要用真实数据重跑** |
 | 状态设 TTL 防膨胀 | MVP 里的窗口状态会随窗口清理自动释放，不需要 TTL；完整版做无限流聚合时再加 |
 
 ## 六、设计取舍（面试追问时可以讲）
